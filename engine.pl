@@ -8,6 +8,11 @@ isElementOf(W,[H|T]) :-       /* 2.  Recursive case: X is a member of the list h
 
 append([],L,L). 
 append([H|T],L2,[H|L3])  :-  append(T,L2,L3).
+
+/*Flag handling*/
+
+x(true).
+y(false).
    
 /*Required Lists */
 adapterlist(['','A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P']).
@@ -252,7 +257,8 @@ acceptAdapterList(Alist):- acceptadapter(X,Y),rangeListGen(X,Y,A),acceptadapter(
 dropAdapterList(Dlist):- dropadapter(X,Y),rangeListGen(X,Y,D),dropadapter(L),append(D,L,Dlist).
 
 
-inputAdapter(S) :- rejectAdapterList(Rlist),acceptAdapterList(Alist),dropAdapterList(Dlist),((isElementOf(S,Alist),print('Adapter accepted')); (isElementOf(S,Rlist),print('Adapter rejected due to blocked adapter S'));isElementOf(S,Dlist);print('Adapter Behaviour not recognized')). 
+inputAdapter(S,Sflag,Rflag,Dflag) :- rejectAdapterList(Rlist),acceptAdapterList(Alist),dropAdapterList(Dlist),
+((isElementOf(S,Alist),print('Adapter accepted'),x(Sflag)); (isElementOf(S,Rlist),print('Adapter rejected due to blocked adapter S'),x(Rflag));(isElementOf(S,Dlist),x(Dflag));(print('Adapter Behaviour not recognized'),x(Rflag))). 
 
 /*checking ethernet clause*/
 
@@ -263,7 +269,7 @@ acceptViden(Vid):- acceptVid(Vidlist),acceptVid(X,Y),(isElementOf(Vid,Vidlist); 
 rejectViden(Vid):- rejectVid(Vidlist),rejectVid(X,Y),(isElementOf(Vid,Vidlist); (X=<Vid , Y>=Vid)).
 dropViden(Vid):- dropVid(Vidlist),dropVid(X,Y),(isElementOf(Vid,Vidlist); (X=<Vid , Y>=Vid)).
 
-inputVid(Vid):- (acceptViden(Vid),print('Vid accepted'));(rejectViden(Vid),print('Vid Rejected'));(dropViden(Vid));print('Vid Behaviour not recognized').
+inputVid(Vid,Sflag,Rflag,Dflag):- (acceptViden(Vid),print('Vid accepted'),x(Sflag));(rejectViden(Vid),print('Vid Rejected'),x(Rflag));(dropViden(Vid),x(Dflag));(print('Vid Behaviour not recognized'),x(Rflag)).
 
 
 
@@ -282,34 +288,55 @@ rejectProtoList(Rlist):- rejectproto(X,Y),rangeListProto(X,Y,R),rejectproto(L),a
 acceptProtoList(Alist):- acceptproto(X,Y),rangeListProto(X,Y,A),acceptproto(L),append(A,L,Alist).
 dropProtoList(Dlist):- dropproto(X,Y),rangeListProto(X,Y,D),dropproto(L),append(D,L,Dlist).
 
-inputProto(Proto) :- rejectProtoList(Rlist),acceptProtoList(Alist),dropProtoList(Dlist),((isElementOf(Proto,Alist),print('Ethernet protocol accepted')); (isElementOf(Proto,Rlist),print('Ethernet protocol rejected'));isElementOf(Proto,Dlist);print('Ethernet Protocol Behaviour not recognized')). 
+inputProto(Proto,Sflag,Rflag,Dflag) :- rejectProtoList(Rlist),acceptProtoList(Alist),dropProtoList(Dlist),((isElementOf(Proto,Alist),print('Ethernet protocol accepted'),x(Sflag)); (isElementOf(Proto,Rlist),print('Ethernet protocol rejected'),x(Rflag));(isElementOf(Proto,Dlist),x(Dflag));(print('Ethernet Protocol Behaviour not recognized'),x(Rflag))). 
 
 
 /*comparing 3 IPV4 addresses*/
-comparelist([H1|T1],[H2|T2],[H3|T3]):- (number_codes(N1,H1),number_codes(N2,H2),number_codes(N3,H3),N1=< N3,N2>= N3); comparelist(T1,T2,T3).
+comparelist([H1|T1],[H2|T2],[H3|T3]):- (number_codes(N1,H1),number_codes(N2,H2),number_codes(N3,H3),N1=< N3,N2>= N3), comparelist(T1,T2,T3).
 
 /*IPV4src*/
+masking(["24"],Src,A):-split_string(A,".","",[H16|T16]),T16=[A1|T1],T1=[A3|T3],split_string(Src,".","",[H17|T17]),T17 = [A2|T2],T2 = [A4|T4],number_codes(N10,H16),number_codes(N11,A1),number_codes(N12,H17),number_codes(N13,A2),number_codes(N14,A3),number_codes(N15,A4),N10==N12,N11==N13,N14==N15.
+masking(["16"],Src,A):-split_string(A,".","",[H16|T16]),T16=[A1|T1],split_string(Src,".","",[H17|T17]),T17 = [A2|T2],number_codes(N10,H16),number_codes(N11,A1),number_codes(N12,H17),number_codes(N13,A2),N10==N12,N11==N13.
+masking(["8"],Src,A):- split_string(A,".","",[H8|T8]),split_string(Src,".","",[H9|T9]),number_codes(N8,H8),number_codes(N9,H9),N9==N8. 
+
+acceptIPV4srcmask(Src,mask):- acceptIPV4srcmasking(A),A\=='',split_string(A,"/","",[H|T]),masking(T,Src,A).
+
+rejectIPV4srcmask(Src,mask):- rejectIPV4srcmasking(A),A\=='',split_string(A,"/","",[H|T]),masking(T,Src,A).
+
+dropIPV4srcmask(Src,mask):- dropIPV4srcmasking(A),A\=='',split_string(A,"/","",[H|T]),masking(T,Src,A).
+
 
 acceptIPV4srcen(Src):- acceptIPV4src(any).
 rejectIPV4srcen(Src):- rejectIPV4src(any).
 dropIPV4srcen(Src):- dropIPV4src(any).
-acceptIPV4srcen(Src):- (acceptIPV4src(Src1),isElementOf(Src,Src1));(acceptIPV4src(X,Y),split_string(X,".","",[H1|RList1]), split_string(Y,".","",[H2|RList2]),split_string(Src,".","",[H3|RList3]),H1\=="",H2\=="",H3\=="",comparelist([H1|RList1],[H2|RList2],[H3|RList3])). 
-rejectIPV4srcen(Src):- (rejectIPV4src(Src1),isElementOf(Src,Src1));(rejectIPV4src(X,Y),split_string(X,".","",[H1|RList1]), split_string(Y,".","",[H2|RList2]),split_string(Src,".","",[H3|RList3]),H1\=="",H2\=="",H3\=="",comparelist([H1|RList1],[H2|RList2],[H3|RList3])). 
-dropIPV4srcen(Src):- (dropIPV4src(Src1),isElementOf(Src,Src1));(dropIPV4src(X,Y),split_string(X,".","",[H1|RList1]), split_string(Y,".","",[H2|RList2]),split_string(Src,".","",[H3|RList3]),H1\=="",H2\=="",H3\=="",comparelist([H1|RList1],[H2|RList2],[H3|RList3])).
+acceptIPV4srcen(Src):- acceptIPV4srcmask(Src,mask);(acceptIPV4src(Src1),isElementOf(Src,Src1));(acceptIPV4src(X,Y),split_string(X,".","",[H1|RList1]), split_string(Y,".","",[H2|RList2]),split_string(Src,".","",[H3|RList3]),H1\=="",H2\=="",H3\=="",comparelist([H1|RList1],[H2|RList2],[H3|RList3])). 
+rejectIPV4srcen(Src):- rejectIPV4srcmask(Src,mask);(rejectIPV4src(Src1),isElementOf(Src,Src1));(rejectIPV4src(X,Y),split_string(X,".","",[H1|RList1]), split_string(Y,".","",[H2|RList2]),split_string(Src,".","",[H3|RList3]),H1\=="",H2\=="",H3\=="",comparelist([H1|RList1],[H2|RList2],[H3|RList3])). 
+dropIPV4srcen(Src):- dropIPV4srcmask(Src,mask);(dropIPV4src(Src1),isElementOf(Src,Src1));(dropIPV4src(X,Y),split_string(X,".","",[H1|RList1]), split_string(Y,".","",[H2|RList2]),split_string(Src,".","",[H3|RList3]),H1\=="",H2\=="",H3\=="",comparelist([H1|RList1],[H2|RList2],[H3|RList3])).
 
 
-inputIPV4src(Src):-acceptIPV4srcen(Src),print("Source IP Accepted");dropIPV4srcen(Src);(rejectIPV4srcen(Src),print("Source IP rejected"));print("Source IP behaviour not recognized").
+inputIPV4src(Src,Sflag,Rflag,Dflag):-(acceptIPV4srcen(Src),print("Source IP Accepted"),x(Sflag));(dropIPV4srcen(Src),x(Dflag));(rejectIPV4srcen(Src),print("Source IP rejected"),x(Rflag));(print("Source IP behaviour not recognized"),x(Rflag)).
 
 /*IPV4dst*/
+masking(["24"],Dst,A):-split_string(A,".","",[H16|T16]),T16=[A1|T1],T1=[A3|T3],split_string(Dst,".","",[H17|T17]),T17 = [A2|T2],T2 = [A4|T4],number_codes(N10,H16),number_codes(N11,A1),number_codes(N12,H17),number_codes(N13,A2),number_codes(N14,A3),number_codes(N15,A4),N10==N12,N11==N13,N14==N15.
+masking(["16"],Dst,A):-split_string(A,".","",[H16|T16]),T16=[A1|T1],split_string(Dst,".","",[H17|T17]),T17 = [A2|T2],number_codes(N10,H16),number_codes(N11,A1),number_codes(N12,H17),number_codes(N13,A2),N10==N12,N11==N13.
+masking(["8"],Dst,A):- split_string(A,".","",[H8|T8]),split_string(Dst,".","",[H9|T9]),number_codes(N8,H8),number_codes(N9,H9),N9==N8. 
+
+acceptIPV4dstmask(Dst,mask):- acceptIPV4dstmasking(A),A\=='',split_string(A,"/","",[H|T]),masking(T,Dst,A).
+
+rejectIPV4dstmask(Dst,mask):- rejectIPV4dstmasking(A),A\=='',split_string(A,"/","",[H|T]),masking(T,Dst,A).
+
+dropIPV4dstmask(Dst,mask):- dropIPV4dstmasking(A),A\=='',split_string(A,"/","",[H|T]),masking(T,Dst,A).
+
+
 acceptIPV4dsten(Dst):- acceptIPV4dst(any).
 rejectIPV4dsten(Dst):- rejectIPV4dst(any).
 dropIPV4dsten(Dst):- dropIPV4dst(any).
-acceptIPV4dsten(Dst):- (acceptIPV4dst(Dst1),isElementOf(dst,Dst1));(acceptIPV4dst(X,Y),split_string(X,".","",[H1|DList1]), split_string(Y,".","",[H2|DList2]),split_string(Dst,".","",[H3|DList3]),H1\=="",H2\=="",H3\=="",comparelist([H1|DList1],[H2|DList2],[H3|DList3])). 
-rejectIPV4dsten(Dst):- (rejectIPV4dst(Dst1),isElementOf(dst,Dst1));(rejectIPV4dst(X,Y),split_string(X,".","",[H1|DList1]), split_string(Y,".","",[H2|DList2]),split_string(Dst,".","",[H3|DList3]),H1\=="",H2\=="",H3\=="",comparelist([H1|DList1],[H2|DList2],[H3|DList3])). 
-dropIPV4dsten(Dst):- (dropIPV4dst(Dst1),isElementOf(dst,Dst1));(dropIPV4dst(X,Y),split_string(X,".","",[H1|DList1]), split_string(Y,".","",[H2|DList2]),split_string(Dst,".","",[H3|DList3]),H1\=="",H2\=="",H3\=="",comparelist([H1|DList1],[H2|DList2],[H3|DList3])). 
+acceptIPV4dsten(Dst):- acceptIPV4dstmask(Dst,mask);(acceptIPV4dst(Dst1),isElementOf(Dst,Dst1));(acceptIPV4dst(X,Y),split_string(X,".","",[H1|DList1]), split_string(Y,".","",[H2|DList2]),split_string(Dst,".","",[H3|DList3]),H1\=="",H2\=="",H3\=="",comparelist([H1|DList1],[H2|DList2],[H3|DList3])). 
+rejectIPV4dsten(Dst):- rejectIPV4dstmask(Dst,mask);(rejectIPV4dst(Dst1),isElementOf(Dst,Dst1));(rejectIPV4dst(X,Y),split_string(X,".","",[H1|DList1]), split_string(Y,".","",[H2|DList2]),split_string(Dst,".","",[H3|DList3]),H1\=="",H2\=="",H3\=="",comparelist([H1|DList1],[H2|DList2],[H3|DList3])). 
+dropIPV4dsten(Dst):- dropIPV4dstmask(Dst,mask);(dropIPV4dst(Dst1),isElementOf(Dst,Dst1));(dropIPV4dst(X,Y),split_string(X,".","",[H1|DList1]), split_string(Y,".","",[H2|DList2]),split_string(Dst,".","",[H3|DList3]),H1\=="",H2\=="",H3\=="",comparelist([H1|DList1],[H2|DList2],[H3|DList3])). 
 
 
-inputIPV4dst(Dst):-acceptIPV4dsten(Dst),print("Destination IP Accepted");dropIPV4dsten(Dst);(rejectIPV4dsten(Dst),print("Destination IP rejected"));print("Destination IP behaviour not recognized").
+inputIPV4dst(Dst,Sflag,Rflag,Dflag):-(acceptIPV4dsten(Dst),print("Destination IP Accepted"),x(Sflag));(dropIPV4dsten(Dst),x(Dflag));(rejectIPV4dsten(Dst),print("Destination IP rejected"),x(Rflag));(print("Destination IP behaviour not recognized"),x(Rflag)).
 
 
 /*ICMPtype*/
@@ -327,7 +354,7 @@ rejectICMPtypeList(Rlist):- rejectICMPtype(X,Y),rangeListICMP(X,Y,R),rejectICMPt
 acceptICMPtypeList(Alist):- acceptICMPtype(X,Y),rangeListICMP(X,Y,A),acceptICMPtype(L),append(A,L,Alist).
 dropICMPtypeList(Dlist):- dropICMPtype(X,Y),rangeListICMP(X,Y,D),dropICMPtype(L),append(D,L,Dlist).
 
-inputICMPtype(S) :- rejectICMPtypeList(Rlist),acceptICMPtypeList(Alist),dropICMPtypeList(Dlist),((isElementOf(S,Alist),print('ICMP type accepted')); (isElementOf(S,Rlist),print('ICMPtype rejected'));isElementOf(S,Dlist);print('ICMPtype Behaviour not recognized')). 
+inputICMPtype(S,Sflag,Rflag,Dflag) :- rejectICMPtypeList(Rlist),acceptICMPtypeList(Alist),dropICMPtypeList(Dlist),((isElementOf(S,Alist),print('ICMP type accepted'),x(Sflag)); (isElementOf(S,Rlist),print('ICMPtype rejected'),x(Rflag));(isElementOf(S,Dlist),x(Dflag));(print('ICMPtype Behaviour not recognized'),x(Rflag))). 
 
 /*ICMPcode*/
 
@@ -345,7 +372,7 @@ rejectICMPcodeList(Rlist):- rejectICMPcode(X,Y),rangeListICMP(X,Y,R),rejectICMPc
 acceptICMPcodeList(Alist):- acceptICMPcode(X,Y),rangeListICMP(X,Y,A),acceptICMPcode(L),append(A,L,Alist).
 dropICMPcodeList(Dlist):- dropICMPcode(X,Y),rangeListICMP(X,Y,D),dropICMPcode(L),append(D,L,Dlist).
 
-inputICMPcode(S) :- rejectICMPcodeList(Rlist),acceptICMPcodeList(Alist),dropICMPcodeList(Dlist),((isElementOf(S,Alist),print('ICMP typecode accepted')); (isElementOf(S,Rlist),print('ICMPtypecode rejected'));isElementOf(S,Dlist);print('ICMP typecode Behaviour not recognized')). 
+inputICMPcode(S,Sflag,Rflag,Dflag) :- rejectICMPcodeList(Rlist),acceptICMPcodeList(Alist),dropICMPcodeList(Dlist),((isElementOf(S,Alist),print('ICMP typecode accepted'),x(Sflag)); (isElementOf(S,Rlist),print('ICMPtypecode rejected'),x(Rflag));(isElementOf(S,Dlist),x(Dflag));(print('ICMP typecode Behaviour not recognized'),x(Rflag))). 
 
 /*TCPsrc*/
 
@@ -357,7 +384,7 @@ acceptTCPsrcen(TCPsrc):- acceptTCPsrc(TCPsrclist),acceptTCPsrc(X,Y),(isElementOf
 rejectTCPsrcen(TCPsrc):- rejectTCPsrc(TCPsrclist),rejectTCPsrc(X,Y),(isElementOf(TCPsrc,TCPsrclist); (X=<TCPsrc , Y>=TCPsrc)).
 dropTCPsrcen(TCPsrc):- dropTCPsrc(TCPsrclist),dropTCPsrc(X,Y),(isElementOf(TCPsrc,TCPsrclist); (X=<TCPsrc , Y>=TCPsrc)).
 
-inputTCPsrc(TCPsrc):- (acceptTCPsrcen(TCPsrc),print('TCP source port accepted'));(rejectTCPsrcen(TCPsrc),print('TCP source port rejected'));(dropTCPsrcen(TCPsrc));print('TCP source port Behaviour not recognized').
+inputTCPsrc(TCPsrc,Sflag,Rflag,Dflag):- (acceptTCPsrcen(TCPsrc),print('TCP source port accepted'),x(Sflag));(rejectTCPsrcen(TCPsrc),print('TCP source port rejected'),x(Rflag));(dropTCPsrcen(TCPsrc),x(Dflag));(print('TCP source port Behaviour not recognized'),x(Rflag)).
 
 /*TCPdst*/
 
@@ -368,7 +395,7 @@ dropTCPdsten(TCPdst):- dropTCPdst(any).
 acceptTCPdsten(TCPdst):- acceptTCPdst(TCPdstlist),acceptTCPdst(X,Y),(isElementOf(TCPdst,TCPdstlist); (X=<TCPdst , Y>=TCPdst)).
 rejectTCPdsten(TCPdst):- rejectTCPdst(TCPdstlist),rejectTCPdst(X,Y),(isElementOf(TCPdst,TCPdstlist); (X=<TCPdst , Y>=TCPdst)).
 dropTCPdsten(TCPdst):- dropTCPdst(TCPdstlist),dropTCPdst(X,Y),(isElementOf(TCPdst,TCPdstlist); (X=<TCPdst , Y>=TCPdst)).
-inputTCPdst(TCPdst):- (acceptTCPdsten(TCPdst),print('TCP destination port accepted'));(rejectTCPdsten(TCPdst),print('TCP destination port rejected'));(dropTCPdsten(TCPdst));print('TCP destination port Behaviour not recognized').
+inputTCPdst(TCPdst,Sflag,Rflag,Dflag):- (acceptTCPdsten(TCPdst),print('TCP destination port accepted'),x(Sflag));(rejectTCPdsten(TCPdst),print('TCP destination port rejected'),x(Rflag));(dropTCPdsten(TCPdst),x(Dflag));(print('TCP destination port Behaviour not recognized'),x(Rflag)).
 
 
 
@@ -381,7 +408,7 @@ dropUDPsrcen(UDPsrc):- dropUDPsrc(any).
 acceptUDPsrcen(UDPsrc):- acceptUDPsrc(UDPsrclist),acceptUDPsrc(X,Y),(isElementOf(UDPsrc,UDPsrclist); (X=<UDPsrc , Y>=UDPsrc)).
 rejectUDPsrcen(UDPsrc):- rejectUDPsrc(UDPsrclist),rejectUDPsrc(X,Y),(isElementOf(UDPsrc,UDPsrclist); (X=<UDPsrc , Y>=UDPsrc)).
 dropUDPsrcen(UDPsrc):- dropUDPsrc(UDPsrclist),dropUDPsrc(X,Y),(isElementOf(UDPsrc,UDPsrclist); (X=<UDPsrc , Y>=UDPsrc)).
-inputUDPsrc(UDPsrc):- (acceptUDPsrcen(UDPsrc),print('UDP source port accepted'));(rejectUDPsrcen(UDPsrc),print('UDP source port accepted'));(dropUDPsrcen(UDPsrc));print('UDP source port Behaviour not recognized').
+inputUDPsrc(UDPsrc,Sflag,Rflag,Dflag):- (acceptUDPsrcen(UDPsrc),print('UDP source port accepted'),x(Sflag));(rejectUDPsrcen(UDPsrc),print('UDP source port rejected'),x(Rflag));(dropUDPsrcen(UDPsrc),x(Dflag));(print('UDP source port Behaviour not recognized'),x(Rflag)).
 
 
 
@@ -394,11 +421,11 @@ dropUDPdsten(UDPdst):- dropUDPdst(any).
 acceptUDPdsten(UDPdst):- acceptUDPdst(UDPdstlist),acceptUDPdst(X,Y),(isElementOf(UDPdst,UDPdstlist); (X=<UDPdst , Y>=UDPdst)).
 rejectUDPdsten(UDPdst):- rejectUDPdst(UDPdstlist),rejectUDPdst(X,Y),(isElementOf(UDPdst,UDPdstlist); (X=<UDPdst , Y>=UDPdst)).
 dropUDPdsten(UDPdst):- dropUDPdst(UDPdstlist),dropUDPdst(X,Y),(isElementOf(UDPdst,UDPdstlist); (X=<UDPdst , Y>=UDPdst)).
-inputUDPdst(UDPdst):- (acceptUDPdsten(UDPdst),print('UDP destination port accepted'));(rejectUDPdsten(UDPdst),print('UDP destination port rejected'));(dropUDPdsten(UDPdst));print('UDP destination port Behaviour not recognized').
+inputUDPdst(UDPdst,Sflag,Rflag,Dflag):- (acceptUDPdsten(UDPdst),print('UDP destination port accepted'),x(Sflag));(rejectUDPdsten(UDPdst),print('UDP destination port rejected'),x(Rflag));(dropUDPdsten(UDPdst),x(Dflag));(print('UDP destination port Behaviour not recognized'),x(Rflag)).
 
 
 
 /*common*/
 
-input(Adap,EtherVid,Etherproto,IPV4src,IPV4dst,IPV4proto,X,Y):- inputAdapter(Adap),inputVid(EtherVid),inputProto(Etherproto),inputIPV4src(IPV4src),inputIPV4dst(IPV4dst),((protocol1(IPV4proto),inputICMPtype(X),inputICMPcode(Y));(protocol2(IPV4proto),inputTCPsrc(X),inputTCPdst(Y));(protocol3(IPV4proto),inputUDPsrc(X),inputUDPdst(Y))).
+input(Adap,EtherVid,Etherproto,IPV4src,IPV4dst,IPV4proto,X,Y):- inputAdapter(Adap,Sflag,Rflag,Dflag),inputVid(EtherVid,Sflag,Rflag,Dflag),inputProto(Etherproto,Sflag,Rflag,Dflag),inputIPV4src(IPV4src,Sflag,Rflag,Dflag),inputIPV4dst(IPV4dst,Sflag,Rflag,Dflag),((protocol1(IPV4proto),inputICMPtype(X,Sflag,Rflag,Dflag),inputICMPcode(Y,Sflag,Rflag,Dflag));(protocol2(IPV4proto),inputTCPsrc(X,Sflag,Rflag,Dflag),inputTCPdst(Y,Sflag,Rflag,Dflag));(protocol3(IPV4proto),inputUDPsrc(X,Sflag,Rflag,Dflag),inputUDPdst(Y,Sflag,Rflag,Dflag))),print("----FINAL RESULT---"),((Rflag==true,print("PACKET REJECTED---");(Dflag==true));print("PACKET ACCEPTED--")).
 
